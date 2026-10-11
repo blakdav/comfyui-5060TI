@@ -155,6 +155,15 @@ it. Building in CI and pulling the finished image avoids this on the host.
 
 ## CI
 
+BuildKit imports and exports a persistent registry cache at
+`ghcr.io/blakdav/comfyui:buildcache` using `mode=max`. This preserves intermediate
+build layers across GitHub-hosted runners. The first successful build populates
+the cache; later builds reuse unchanged dependency layers. Changes to earlier
+Dockerfile instructions still invalidate subsequent layers. The downloader is
+copied after dependency installation and ownership changes, so editing it does
+not rerun those expensive steps. Cache import/export and image transfer still
+take time; caching does not eliminate large downloads to a fresh runner.
+
 `.github/workflows/build.yml` builds on push to `main` and on manual dispatch,
 pushing to `ghcr.io/blakdav/comfyui:latest`. The workflow frees disk space before
 building; GitHub-hosted runners ship with roughly 14 GB free, which a CUDA and

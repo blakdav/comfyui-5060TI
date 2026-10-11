@@ -34,3 +34,5 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/comfyui:latest
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/comfyui:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/comfyui:buildcache,mode=max

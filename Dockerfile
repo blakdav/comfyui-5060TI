@@ -17,9 +17,8 @@ RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu130
 RUN pip install --no-cache-dir -r requirements.txt -r manager_requirements.txt
 
-COPY --chmod=755 model-get /usr/local/bin/model-get
-
 RUN chown -R 1000:1000 /opt/comfyui /opt/venv
+COPY --chmod=755 model-get /usr/local/bin/model-get
 USER 1000:1000
 
 EXPOSE 8188
