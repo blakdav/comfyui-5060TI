@@ -29,6 +29,7 @@ Built from `nvidia/cuda:13.0.0-runtime-ubuntu24.04`. Includes:
 - ComfyUI (pinned to a release tag — see the `Dockerfile`)
 - PyTorch with CUDA 13.0 wheels (cu130 or newer is required for RTX 20-series and above)
 - ComfyUI-Manager, enabled via `--enable-manager`
+- C/C++ build tools and Python development headers for Triton's runtime compilation
 
 ## Usage
 
