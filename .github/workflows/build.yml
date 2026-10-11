@@ -14,6 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve latest stable ComfyUI release
+        id: comfyui
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: release } = await github.rest.repos.getLatestRelease({
+              owner: 'Comfy-Org', repo: 'ComfyUI'
+            });
+            if (release.draft || release.prerelease || !/^v\d+\.\d+\.\d+$/.test(release.tag_name)) {
+              throw new Error('Expected a stable ComfyUI version tag');
+            }
+            core.info(`Building ComfyUI ${release.tag_name}`);
+            core.setOutput('version', release.tag_name);
+
       - name: Free up disk space
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
@@ -32,6 +46,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          pull: true
+          build-args: |
+            COMFYUI_VERSION=${{ steps.comfyui.outputs.version }}
+            DEPENDENCY_REFRESH=${{ github.event_name == 'workflow_dispatch' && github.run_id || '0' }}
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/comfyui:latest
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/comfyui:buildcache

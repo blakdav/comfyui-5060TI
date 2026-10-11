@@ -26,7 +26,7 @@ docker run --rm --gpus all ubuntu nvidia-smi
 
 Built from `nvidia/cuda:13.0.0-runtime-ubuntu24.04`. Includes:
 
-- ComfyUI (pinned to a release tag — see the `Dockerfile`)
+- ComfyUI (latest stable GitHub release, resolved by CI before each build)
 - PyTorch with CUDA 13.0 wheels (cu130 or newer is required for RTX 20-series and above)
 - ComfyUI-Manager, enabled via `--enable-manager`
 - C/C++ build tools and Python development headers for Triton's runtime compilation
@@ -146,9 +146,26 @@ Seedance, and similar) that bill per generation and display a price badge on the
 node. They do not run locally. Add `--disable-api-nodes` to the `CMD` to remove
 them entirely.
 
-**Version pinning.** The `Dockerfile` clones a release tag rather than `master`.
-Upstream warns that commits outside stable releases can be unstable and break
-custom nodes. Bump the tag deliberately.
+**Stable updates.** CI resolves the latest published stable ComfyUI release and
+passes its tag as `COMFYUI_VERSION`. Drafts, prereleases, and development branches
+are excluded. The frontend and other dependencies follow that release's
+requirements; PyTorch uses the latest compatible stable CUDA 13.0 wheels, with no
+nightly index or `--pre`. Stable releases can still introduce regressions.
+
+Push builds reuse dependency layers where possible. To explicitly refresh Python
+packages, run **Actions → Build and push ComfyUI image → Run workflow**. Each new
+manual run invalidates Python installation layers, while retaining the registry
+cache for other layers. CI also checks for updates to the configured CUDA base
+image tag; CUDA major/minor upgrades remain deliberate Dockerfile changes.
+
+Local builds must supply a stable release tag:
+
+```bash
+docker build --build-arg COMFYUI_VERSION=vX.Y.Z -t comfyui .
+```
+
+Replace `vX.Y.Z` with a published stable tag. Add
+`--build-arg DEPENDENCY_REFRESH=some-new-value` to refresh Python dependencies.
 
 **Build size.** The image lands around 10–15 GB, mostly PyTorch and CUDA. Building
 locally leaves a similar amount in build cache — `docker builder prune -a` clears

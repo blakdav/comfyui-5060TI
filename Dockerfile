@@ -7,15 +7,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt
-RUN git clone --branch v0.7.0 --depth 1 https://github.com/Comfy-Org/ComfyUI.git comfyui
+ARG COMFYUI_VERSION
+RUN test -n "$COMFYUI_VERSION" \
+    && git clone --branch "$COMFYUI_VERSION" --depth 1 https://github.com/Comfy-Org/ComfyUI.git comfyui
 WORKDIR /opt/comfyui
 
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+ARG DEPENDENCY_REFRESH=0
+RUN echo "Dependency refresh: $DEPENDENCY_REFRESH"
 RUN pip install --no-cache-dir --upgrade pip
 
-RUN pip install --no-cache-dir torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu130
+RUN pip install --no-cache-dir --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
 RUN pip install --no-cache-dir -r requirements.txt -r manager_requirements.txt
+RUN pip check
 
 RUN chown -R 1000:1000 /opt/comfyui /opt/venv
 
