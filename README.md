@@ -83,6 +83,44 @@ Anything downloaded outside the container needs its ownership fixed:
 sudo chown -R 1000:1000 models
 ```
 
+### Download models inside the container
+
+The image includes `model-get`, which downloads directly into the mounted models
+directory as the container user:
+
+```bash
+docker exec -it comfyui model-get text_encoders \
+  'https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors'
+```
+
+Use a direct file URL (Hugging Face `/resolve/` links, rather than `/blob/` pages).
+Quote URLs, especially those containing query parameters. To choose the filename:
+
+```bash
+docker exec -it comfyui model-get vae 'https://example.com/download?id=123' --filename ae.safetensors
+```
+
+Supported categories: `text_encoders`, `vae`, `diffusion_models`, `checkpoints`,
+`loras`, `upscale_models`, `controlnet`, `clip_vision`, `embeddings`, `vae_approx`.
+Completed files are skipped. Downloads use a `.part` file and become visible under
+their final name only after success. Run the same command to resume a failed or
+interrupted download; the server must support HTTP range requests. Resume only
+with the same URL/file content. To start over, remove the corresponding `.part`
+file. Small `.lock` files prevent concurrent downloads to the same destination.
+
+Public direct downloads are supported; authenticated/gated downloads and model
+content/checksum validation are not implemented. The tool does not refresh the
+ComfyUI frontend; refresh it after downloading. `COMFYUI_MODELS_DIR` can override
+the default `/opt/comfyui/models` directory.
+
+After publishing an image containing this command, update the server:
+
+```bash
+docker compose pull comfyui
+docker compose up -d comfyui
+docker exec comfyui model-get --help
+```
+
 ## Networking
 
 The compose file attaches to an external `npm_internal` network and exposes no

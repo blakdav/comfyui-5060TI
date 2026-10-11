@@ -1,0 +1,80 @@
+#!/usr/bin/env python3
+"""Download a model into ComfyUI's persistent model directory."""
+
+import argparse
+import os
+from pathlib import Path
+import subprocess
+import sys
+from urllib.parse import unquote, urlsplit
+
+
+CATEGORIES = (
+    "text_encoders", "vae", "diffusion_models", "checkpoints", "loras",
+    "upscale_models", "controlnet", "clip_vision", "embeddings", "vae_approx",
+)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("category", choices=CATEGORIES)
+    parser.add_argument("url", help="Direct HTTP(S) file URL, not a model page")
+    parser.add_argument("--filename", help="Override the filename inferred from the URL")
+    args = parser.parse_args()
+    url = urlsplit(args.url)
+    if url.scheme not in ("https", "http") or not url.hostname or url.username or url.password:
+        parser.error("Supply an HTTP(S) URL without embedded credentials")
+    filename = args.filename or unquote(url.path.rsplit("/", 1)[-1])
+    if (not filename or filename in (".", "..") or filename.endswith(".part")
+            or any(c in filename for c in '/\\\x00\r\n')):
+        parser.error("Supply a simple filename using --filename")
+
+    folder = Path(os.environ.get("COMFYUI_MODELS_DIR", "/opt/comfyui/models")) / args.category
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / filename
+    partial = folder / (filename + ".part")
+    if target.exists():
+        print(f"Already exists; skipped: {target}")
+        return 0
+
+    # Serialize downloads of the same destination, including across docker exec calls.
+    import fcntl
+    with (folder / (filename + ".lock")).open("a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print("Another download is using this destination", file=sys.stderr)
+            return 1
+        if target.exists():
+            print(f"Already exists; skipped: {target}")
+            return 0
+        print(f"Downloading to {target}", flush=True)
+        result = subprocess.run([
+            "curl", "--location", "--fail", "--show-error", "--progress-bar",
+            "--proto", "=http,https", "--proto-redir", "=http,https",
+            "--connect-timeout", "30", "--retry", "3", "--continue-at", "-",
+            "--output", str(partial), "--url", args.url,
+        ])
+        if result.returncode:
+            print(f"Download failed; partial file retained at {partial}. "
+                  "Run the same command to resume. The server must support range requests.",
+                  file=sys.stderr)
+            return result.returncode
+        if not partial.exists() or partial.stat().st_size == 0:
+            print("Download produced an empty file", file=sys.stderr)
+            return 1
+        # Publish atomically without replacing an existing completed model.
+        os.link(partial, target)
+        partial.unlink()
+        print(f"Saved: {target}")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except (OSError, ValueError) as exc:
+        print(f"model-get: {exc}", file=sys.stderr)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        sys.exit(130)
